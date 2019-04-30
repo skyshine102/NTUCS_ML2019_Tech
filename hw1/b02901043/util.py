@@ -11,10 +11,9 @@ import numpy as np
 import pandas as pd
 
 
-def load_data():
+def load_data(path = ""):
     # Path of data
-    path = "/home/rljahn/NTUCS_ML2019_Tech/hw1/"
-
+    # path = "/home/rljahn/NTUCS_ML2019_Tech/hw1/"
     # Load data
     train_data = pd.read_csv(path + "features.train.txt", delim_whitespace=True, header = None)
     test_data = pd.read_csv(path + "features.test.txt", delim_whitespace=True, header = None)

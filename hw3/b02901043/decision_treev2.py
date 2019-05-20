@@ -34,8 +34,16 @@ def gini_impurity(sub_y):
         num_classes = len(set(sub_y))
         return 1 - sum([ np.mean(sub_y==classes[i])**2 for i in range(num_classes) ])
 
-def CalLoss(predict_method,model, X, y):
-    loss = np.mean([ predict_method(model, X[i,:]) != y[i] for i in range(len(y)) ])
+def CalLoss2y(y_true, y_predicted):
+    loss = np.mean( y_predicted != y_true)
+    return loss
+
+def CalLoss(y_true, y_matrix, t):
+    tmp = np.sum(y_matrix[:,:t-1], axis = 1)
+    tmp[tmp >= 0] = 1
+    tmp[tmp < 0] = -1
+    y_predicted = tmp
+    loss = np.mean([ y_predicted[i] != y_true[i] for i in range(len(y_true)) ])
     return loss
 
 '''
@@ -144,40 +152,28 @@ def BootStrap(X,y, percentage = 0.8):
 
 
 def RandomForest(X, y, T = 30):
-    #loss = 0
-    first_t_tree_loss = np.zeros(T)
+    #first_t_tree_loss = np.zeros(T)
     forest = [-1 for i in range(T)]
     for t in range(T):
         if (t % 100 ==0):
             print(t)
         sampled_X, sampled_y = BootStrap(X,y)
         model = CART(sampled_X,sampled_y)
-        #loss += CalLoss(CART_predict, model, X, y)
         forest[t] = model
-        first_t_tree_loss[t] = CalLoss(RandomForest_predictv2, forest, X, y)
-    return first_t_tree_loss, forest #loss/T, 
- 
-'''
-def RandomForest_predict(forest, x):
-    vote = [0,0]
-    for tree in forest:
-        label = CART_predict(tree,x)
-        if label == 1:
-            vote[0] += 1
-        else:
-            vote[1] += 1
-    if vote[0] > vote[1]:
-        return 1
-    else:
-        return -1
-'''
+        #first_t_tree_loss[t] = CalLoss(RandomForest_predictv2, forest, X, y)
+    return forest #first_t_tree_loss, forest #loss/T, 
 
-def RandomForest_predictv2(forest, x):
-    votes = np.array([CART_predict(tree,x) for tree in forest if tree != -1])
-    if np.sum(votes == 1) > np.sum(votes == -1):
-        return 1
-    else:
-        return -1
+def RandomForest_predictv3(forest, X):
+    y_matrix = np.zeros((X.shape[0],len(forest)))
+    for index, tree in enumerate(forest):
+        y_matrix[:,index] = np.array([CART_predict(tree, X[i,:]) for i in range(X.shape[0])])
+    
+    tmp = np.sum(y_matrix, axis = 1)
+    tmp[tmp >= 0] = 1
+    tmp[tmp < 0] = -1
+    predicted_y_array = tmp
+    return y_matrix, predicted_y_array
+
 
 
 def print_tree(model, level = 0):
@@ -226,8 +222,10 @@ if __name__ == '__main__':
     print('\n\n')
     
     print('>>>> Q12: Calculate Ein, Eout >>>>')
-    Ein = CalLoss(CART_predict, root, X_train, y_train)
-    Eout = CalLoss(CART_predict, root, X_test, y_test)
+    yin = np.array([CART_predict(root, X_train[i,:]) for i in range(X_train.shape[0])])
+    Ein = CalLoss2y(y_train, yin)
+    yout = np.array([CART_predict(root, X_test[i,:]) for i in range(X_test.shape[0])])
+    Eout = CalLoss2y(y_test,yout)
     print('Ein = {}, Eout = {}'.format(Ein,Eout))
 
     
@@ -239,43 +237,62 @@ if __name__ == '__main__':
     
     for h in range(0,max_height+1):
         root_tmp = CART(X_train,y_train, max_H = h)
-        Ein_array[h] = CalLoss(CART_predict, root_tmp, X_train, y_train)
-        Eout_array[h] = CalLoss(CART_predict, root_tmp, X_test, y_test)
+        yin = np.array([CART_predict(root_tmp, X_train[i,:]) for i in range(X_train.shape[0])])
+        Ein_array[h] = CalLoss2y(y_train, yin)
+        yout = np.array([CART_predict(root_tmp, X_test[i,:]) for i in range(X_test.shape[0])])
+        Eout_array[h] = CalLoss2y(y_test,yout)
     
     plt.plot(range(1,max_height+2),Ein_array, label = 'Ein' )
     plt.plot(range(1,max_height+2),Eout_array, label = 'Eout' )
     plt.legend()
     plt.savefig("Q13plot.png")
     plt.show(block=False)
-    
+    print("General trend: both Ein and Eout decreases with h. However, when h = 6, which is the maximal height, Eout increases", end = '')
+    print(", indicating overfitting. Therefore pruning technique is important in tree methods.")
     
     print('>>>>> Q14 Plot a histogram of Ein(gt) >>>>')
     T = 30000
-    first_t_loss, forest = RandomForest(X_train, y_train, T= T)
-    Ein_gt = np.zeros(T)
-    for i in range(T):
-        Ein_gt[i] = CalLoss(CART_predict, forest[i], X_train, y_train)
+    forest = RandomForest(X_train, y_train, T= T)
+    
+    y_matrix, _ = RandomForest_predictv3(forest, X_train)
+    
+    Ein_gt = [CalLoss2y(y_train,y_matrix[:,i]) for i in range(y_matrix.shape[1])  ]
     
     plt.hist(Ein_gt)
     plt.savefig("Q14plot.png")
     plt.show(block=False)
     
     print('>>>>> Q15 Plot a curve of t versus Ein (Gt) >>>>')
-    print("Ein(Gt) reaches 0 as t = {}".format(np.argwhere(first_t_loss==0)[0][0]))
+    
+    first_t_loss = [ CalLoss(y_train,y_matrix,i) for i in range(1,y_matrix.shape[1]+1)]
+    #print("Ein(Gt) reaches 0 as t = {}".format(np.argwhere(first_t_loss==0)[0][0]))
     plt.plot(range(1,T+1), first_t_loss)
     plt.savefig("Q15plot.png")
     plt.show(block=False)
 
+
+
     print('>>>>> Q16 Plot a curve of t versus Eout (Gt) >>>>')
-    first_t_tree_Eout = np.zeros(T)
-    for t in range(1,T+1):
-        if (t % 100 == 0):
-            print(t)
-        first_t_tree_Eout[t-1] = CalLoss(RandomForest_predictv2, forest[:t], X_test, y_test)
+    print("Generate new predictions on testing sets... Plz wait!")
+    y_matrix_out, _ = RandomForest_predictv3(forest, X_test)  
     
-    print("Eout(Gt) reaches 0.07 as t = {}".format(np.argwhere(first_t_tree_Eout==0.07)[0][0]))
+    first_t_tree_Eout = [ CalLoss(y_test,y_matrix_out,i) for i in range(1,y_matrix_out.shape[1]+1)]
+    
+    #print("Eout(Gt) reaches 0.07 as t = {}".format(np.argwhere(first_t_tree_Eout==0.07)[0][0]))
     print("The last Eout: ",first_t_tree_Eout[-1])
     plt.plot(range(1,T+1), first_t_tree_Eout)
     plt.savefig("Q16plot.png")
     plt.show(block=False)
+    
+    # plot 15,16 together
+    plt.plot(range(1,1000+1), first_t_loss[:1000], label = "Ein")
+    plt.plot(range(1,1000+1), first_t_tree_Eout[:1000], label = "Eout")
+    plt.legend()
+    plt.savefig("Q1516plot.png")
+    plt.show(block=False)
+    print("To better visualize, the curves of t versus Ein(Gt), Eout(Gy), t<= 1000 are plotted.")
+    print("From the plot we can find that with curve of Eout is above that of Ein, with almost constant difference")
+    print("when t > 200. Both curves stay constant when t is large. There is no sign of overfitting. The result shows the power of Bagging - reduce variance.")
+    
+    
     

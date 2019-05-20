@@ -125,6 +125,18 @@ def CalInternalNode(treenode):
     return num_left + num_right + 1
 
 
+def print_tree(model, level = 0):
+    print(level*"  ", end="")
+    if model.leftNode == None:
+        print(model.value)
+    else:
+        print("Att: ", model.index)
+        #print("thresh: ", model.theta)
+    if model.leftNode:
+        print_tree(model.leftNode, level + 1)
+    if model.rightNode:
+        print_tree(model.rightNode, level + 1)
+
 X, Y = loadData('hw3_train.dat')
 Xtest, Ytest = loadData('hw3_test.dat')
 
@@ -134,4 +146,6 @@ node = dTree(X, Y)
 _, ein = err_fun(X, Y, node)
 _, eout = err_fun(Xtest, Ytest, node)
 print('Ein: ', ein, '\nEout: ', eout)
+
+print_tree(node)
 

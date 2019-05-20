@@ -187,7 +187,8 @@ def print_tree(model, level = 0):
     if model.isleaf:
         print(model.predict)
     else:
-        print("Att: ", model.attr)
+        print("Att: ", model.attr, sep = '')
+        #print("thresh: ", model.thresh)
     if model.left:
         print_tree(model.left, level + 1)
     if model.right:

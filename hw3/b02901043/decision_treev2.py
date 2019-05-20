@@ -95,8 +95,7 @@ def SplitByDecisionStump(X,y):
     
 def CART(X, y, h = 0, max_H = None):
     # if y is already pure, either all y = 1 or y = -1
-    # Note that when all xn are the same should terminate as well. But I did not handle this case..
-    # if np.sum(Y!=Y[0])==0 or X.shape[0]==1 or np.sum(X!=X[0, :])==0:
+    # Note that when all xn are the same should terminate as well.
     if gini_impurity(y) == 0 or X.shape[0] ==1 or np.sum(X != X[0,:]) == 0:
         leaf = TreeNode(None,None)
         leaf.isleaf = True
@@ -122,7 +121,8 @@ def CART(X, y, h = 0, max_H = None):
         Node.right = CART(right_X,right_y, h+1, max_H= max_H)
         Node.height = h
         return Node
-    
+
+
 def CART_predict(tree, x):
     '''
     predict the class of a single x
@@ -144,20 +144,20 @@ def BootStrap(X,y, percentage = 0.8):
 
 
 def RandomForest(X, y, T = 30):
-    loss = 0
+    #loss = 0
     first_t_tree_loss = np.zeros(T)
-    forest = []
+    forest = [-1 for i in range(T)]
     for t in range(T):
         if (t % 100 ==0):
             print(t)
         sampled_X, sampled_y = BootStrap(X,y)
         model = CART(sampled_X,sampled_y)
-        loss += CalLoss(CART_predict, model, X, y)
-        forest.append(model)
-        first_t_tree_loss[t] = CalLoss(RandomForest_predict, forest, X, y)
-    return loss/T, first_t_tree_loss, forest
+        #loss += CalLoss(CART_predict, model, X, y)
+        forest[t] = model
+        first_t_tree_loss[t] = CalLoss(RandomForest_predictv2, forest, X, y)
+    return first_t_tree_loss, forest #loss/T, 
  
-
+'''
 def RandomForest_predict(forest, x):
     vote = [0,0]
     for tree in forest:
@@ -170,6 +170,15 @@ def RandomForest_predict(forest, x):
         return 1
     else:
         return -1
+'''
+
+def RandomForest_predictv2(forest, x):
+    votes = np.array([CART_predict(tree,x) for tree in forest if tree != -1])
+    if np.sum(votes == 1) > np.sum(votes == -1):
+        return 1
+    else:
+        return -1
+
 
 def print_tree(model, level = 0):
     
@@ -236,34 +245,36 @@ if __name__ == '__main__':
     plt.plot(range(1,max_height+2),Eout_array, label = 'Eout' )
     plt.legend()
     plt.savefig("Q13plot.png")
-    plt.draw()
+    plt.show(block=False)
     
     
-    print('>>>>> Q14 Plot a histogram of Ein (gt) >>>>')
-
-    T = 3000
-    loss, first_t_loss, forest = RandomForest(X_train, y_train, T= T)
+    print('>>>>> Q14 Plot a histogram of Ein(gt) >>>>')
+    T = 30000
+    first_t_loss, forest = RandomForest(X_train, y_train, T= T)
     Ein_gt = np.zeros(T)
     for i in range(T):
-        Ein_gt = CalLoss(CART_predict, forest[i], X_train, y_train)
+        Ein_gt[i] = CalLoss(CART_predict, forest[i], X_train, y_train)
     
     plt.hist(Ein_gt)
     plt.savefig("Q14plot.png")
-    plt.draw()
+    plt.show(block=False)
     
     print('>>>>> Q15 Plot a curve of t versus Ein (Gt) >>>>')
+    print("Ein(Gt) reaches 0 as t = {}".format(np.argwhere(first_t_loss==0)[0][0]))
     plt.plot(range(1,T+1), first_t_loss)
     plt.savefig("Q15plot.png")
-    plt.draw()
+    plt.show(block=False)
 
     print('>>>>> Q16 Plot a curve of t versus Eout (Gt) >>>>')
     first_t_tree_Eout = np.zeros(T)
     for t in range(1,T+1):
-        if (i % 100 == 0):
-            print(i,sep='')
-        first_t_tree_Eout[t-1] = CalLoss(RandomForest_predict, forest[:t], X_test, y_test)
-        
+        if (t % 100 == 0):
+            print(t)
+        first_t_tree_Eout[t-1] = CalLoss(RandomForest_predictv2, forest[:t], X_test, y_test)
+    
+    print("Eout(Gt) reaches 0.07 as t = {}".format(np.argwhere(first_t_tree_Eout==0.07)[0][0]))
+    print("The last Eout: ",first_t_tree_Eout[-1])
     plt.plot(range(1,T+1), first_t_tree_Eout)
     plt.savefig("Q16plot.png")
-    plt.draw()
+    plt.show(block=False)
     
